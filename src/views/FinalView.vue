@@ -288,7 +288,7 @@ const startCamera = async () => {
   } catch (error) {
     console.error('카메라 시작 실패:', error)
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
-      alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용���주세요.')
+      alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용주세요.')
     } else {
       alert('카메라를 시작할 수 없습니다. 다시 시도해주세요.')
     }
@@ -430,6 +430,7 @@ onUnmounted(() => {
   background: #000;
   display: flex;
   flex-direction: column;
+  padding: 20px;
 }
 
 .top-controls {
@@ -466,7 +467,9 @@ onUnmounted(() => {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #000;
+  background: #fff;
+  border: 8px solid #ff0000;
+  margin: 10px;
 }
 
 video, canvas {
@@ -488,6 +491,7 @@ video {
   right: 0;
   padding: 20px;
   background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  z-index: 1;
 }
 
 .filter-controls {

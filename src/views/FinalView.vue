@@ -204,10 +204,10 @@ const onResults = (results: any) => {
 
     // 옷릭터가 선택된 경우 캐릭터만 그리기
     if (characterImageRef.value && store.selectedCharacter) {
-      const characterWidth = width * 0.4
+      const characterWidth = width * 0.8
       const characterHeight = (characterWidth / characterImageRef.value.width) * characterImageRef.value.height
       const characterX = (width - characterWidth) / 2
-      const characterY = height * 0.4
+      const characterY = height * 0.3
 
       ctx.drawImage(
         characterImageRef.value,
@@ -255,7 +255,7 @@ const onResults = (results: any) => {
   }
 }
 
-// MediaPipe 초기화 - 세그멘테이션 제거
+// MediaPipe 초기화 - 세그멘테���션 제거
 const startCamera = async () => {
   try {
     if (!videoRef.value || !canvasRef.value || !store.selectedCamera) return
@@ -297,7 +297,7 @@ const startCamera = async () => {
       await new Promise((resolve) => {
         if (!videoRef.value) return
         videoRef.value.onloadedmetadata = () => {
-          console.log('비디오 메타데이터 로드됨')
+          console.log('비��오 메타데이터 로드됨')
           const { videoWidth, videoHeight } = videoRef.value!
           
           if (window.innerHeight > window.innerWidth) {
@@ -337,7 +337,7 @@ const startCamera = async () => {
   } catch (error) {
     console.error('카메라 시작 실패:', error)
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
-      alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용해주세요.')
+      alert('카메라 권한이 필요합니다. ���정에서 카메라 권한을 허용해주세요.')
     } else {
       alert('카메라를 시작할 수 없습니다. 다시 시도해주세요.')
     }

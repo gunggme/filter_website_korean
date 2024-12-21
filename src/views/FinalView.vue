@@ -13,6 +13,7 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const clothesImageRef = ref<HTMLImageElement | null>(null)
 const hatImageRef = ref<HTMLImageElement | null>(null)
+const borderImageRef = ref<HTMLImageElement | null>(null)
 let selfieSegmentation: SelfieSegmentation | null = null
 let faceMesh: any = null
 let faces: any[] = []
@@ -29,6 +30,14 @@ const clothesImages: Record<number, () => Promise<typeof import('*.png')>> = {
 // 모자 이미지 매핑
 const hatImages: Record<number, () => Promise<typeof import('*.png')>> = {
   1: () => import('@/assets/hats/traditional.png')
+}
+
+// 테두리 이미지 매핑
+const borderImages: Record<number, () => Promise<typeof import('*.png')>> = {
+  1: () => import('@/assets/borders/border1.png'),
+  2: () => import('@/assets/borders/border2.png'),
+  3: () => import('@/assets/borders/border3.png'),
+  4: () => import('@/assets/borders/border4.png')
 }
 
 // Face Mesh 초기화
@@ -160,6 +169,17 @@ const onResults = (results: any) => {
     
     // 카메라 화면 그리기 (반전 없이)
     ctx.drawImage(videoRef.value!, 0, 0, width, height)
+
+    // 테두리 그리기
+    if (borderImageRef.value && store.selectedBorder) {
+      ctx.drawImage(
+        borderImageRef.value,
+        0,
+        0,
+        width,
+        height
+      )
+    }
 
     // 얼굴이 인식된 경우 옷과 모자 그리기
     if (faces.length > 0) {
@@ -307,6 +327,19 @@ const stopCamera = () => {
 // 이미지 로드
 const loadImages = async () => {
   try {
+    // 테두리 이미지 로드
+    if (store.selectedBorder) {
+      const importedBorder = await borderImages[store.selectedBorder]()
+      const borderImg = new Image()
+      borderImg.src = importedBorder.default
+      await new Promise((resolve, reject) => {
+        borderImg.onload = resolve
+        borderImg.onerror = reject
+      })
+      borderImageRef.value = borderImg
+    }
+
+    // 기존 이미지 로드 코드...
     if (store.selectedClothes) {
       const importedClothes = await clothesImages[store.selectedClothes]()
       const clothesImg = new Image()
@@ -342,6 +375,12 @@ const selectClothes = (clothesId: number) => {
 // 모자 선택
 const selectHat = (hatId: number) => {
   store.setHat(hatId)
+  loadImages()
+}
+
+// 테두리 선택
+const selectBorder = (borderId: number) => {
+  store.setBorder(borderId)
   loadImages()
 }
 
@@ -384,6 +423,20 @@ onUnmounted(() => {
 
     <div class="bottom-controls">
       <div class="filter-controls">
+        <div class="filter-section">
+          <h3>테두리</h3>
+          <div class="filter-options">
+            <button
+              v-for="item in store.borders"
+              :key="item.id"
+              :class="{ active: store.selectedBorder === item.id }"
+              @click="selectBorder(item.id)"
+            >
+              {{ item.name }}
+            </button>
+          </div>
+        </div>
+
         <div class="filter-section">
           <h3>옷</h3>
           <div class="filter-options">
@@ -430,7 +483,6 @@ onUnmounted(() => {
   background: #000;
   display: flex;
   flex-direction: column;
-  padding: 20px;
 }
 
 .top-controls {
@@ -467,9 +519,7 @@ onUnmounted(() => {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #fff;
-  border: 8px solid #ff0000;
-  margin: 10px;
+  background: #000;
 }
 
 video, canvas {
@@ -491,7 +541,6 @@ video {
   right: 0;
   padding: 20px;
   background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-  z-index: 1;
 }
 
 .filter-controls {

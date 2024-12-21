@@ -110,6 +110,7 @@ const initializeFaceMesh = async () => {
   })
 
   await faceMesh.initialize()
+  console.log('FaceMesh 초기화 완료')
 }
 
 // 이미지 압축
@@ -266,13 +267,17 @@ const startCamera = async () => {
       }
     }
 
+    console.log('카메라 시작 시도:', constraints)
     const stream = await navigator.mediaDevices.getUserMedia(constraints)
+    console.log('스트림 획득 성공')
 
     if (videoRef.value) {
       videoRef.value.srcObject = stream
 
       await new Promise((resolve) => {
-        videoRef.value!.onloadedmetadata = () => {
+        if (!videoRef.value) return
+        videoRef.value.onloadedmetadata = () => {
+          console.log('비디오 메타데이터 로드됨')
           const { videoWidth, videoHeight } = videoRef.value!
           
           if (window.innerHeight > window.innerWidth) {
@@ -286,7 +291,9 @@ const startCamera = async () => {
         }
       })
 
+      console.log('FaceMesh 초기화 시작')
       await initializeFaceMesh()
+      console.log('FaceMesh 초기화 완료')
 
       const camera = new Camera(videoRef.value, {
         onFrame: async () => {
@@ -303,12 +310,14 @@ const startCamera = async () => {
         height: canvasRef.value.height
       })
 
+      console.log('카메라 시작')
       await camera.start()
+      console.log('카메라 시작 완료')
     }
   } catch (error) {
     console.error('카메라 시작 실패:', error)
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
-      alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용주세요.')
+      alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용해주세요.')
     } else {
       alert('카메라를 시작할 수 없습니다. 다시 시도해주세요.')
     }

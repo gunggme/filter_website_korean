@@ -2,9 +2,10 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFilterStore } from '@/stores/filterStore'
-import { SelfieSegmentation } from '@mediapipe/selfie_segmentation'
-import { FaceMesh } from '@mediapipe/face_mesh'
-import { Camera } from '@mediapipe/camera_utils'
+
+// MediaPipe 전역 변수 선언
+declare const Camera: any;
+declare const FaceMesh: any;
 
 const router = useRouter()
 const store = useFilterStore()
@@ -14,7 +15,6 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const clothesImageRef = ref<HTMLImageElement | null>(null)
 const hatImageRef = ref<HTMLImageElement | null>(null)
 const borderImageRef = ref<HTMLImageElement | null>(null)
-let selfieSegmentation: SelfieSegmentation | null = null
 let faceMesh: any = null
 let faces: any[] = []
 let previousFace: any = null
@@ -42,75 +42,89 @@ const borderImages: Record<number, () => Promise<typeof import('*.png')>> = {
 
 // Face Mesh 초기화
 const initializeFaceMesh = async () => {
-  faceMesh = new FaceMesh({
-    locateFile: (file) => {
-      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4/${file}`
-    }
-  })
-
-  faceMesh.setOptions({
-    maxNumFaces: 1,
-    refineLandmarks: true,
-    minDetectionConfidence: 0.7,
-    minTrackingConfidence: 0.7,
-    selfieMode: false
-  })
-
-  faceMesh.onResults((results: any) => {
-    const now = Date.now()
-    if (now - lastProcessTime < processInterval) return
-    lastProcessTime = now
-
-    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-      const landmarks = results.multiFaceLandmarks[0]
-      
-      // 얼굴 바운딩 박스 계산
-      let minX = 1, minY = 1, maxX = 0, maxY = 0
-      landmarks.forEach((landmark: any) => {
-        minX = Math.min(minX, landmark.x)
-        minY = Math.min(minY, landmark.y)
-        maxX = Math.max(maxX, landmark.x)
-        maxY = Math.max(maxY, landmark.y)
-      })
-
-      const currentFace = {
-        boundingBox: {
-          xCenter: (minX + maxX) / 2,
-          yCenter: (minY + maxY) / 2,
-          width: maxX - minX,
-          height: maxY - minY
+  try {
+    faceMesh = new FaceMesh({
+      locateFile: (file: string) => {
+        console.log('Loading MediaPipe file:', file);
+        if (file.endsWith('wasm')) {
+          return `/mediapipe/face_mesh/face_mesh_solution_simd_wasm_bin.wasm`;
         }
+        return `/mediapipe/face_mesh/${file}`;
       }
+    });
 
-      if (previousFace) {
-        currentFace.boundingBox.xCenter = 
-          previousFace.boundingBox.xCenter * (1 - smoothingFactor) + 
-          currentFace.boundingBox.xCenter * smoothingFactor
+    console.log('FaceMesh instance created');
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7,
+      selfieMode: false
+    });
+
+    console.log('FaceMesh options set');
+
+    faceMesh.onResults((results: any) => {
+      const now = Date.now()
+      if (now - lastProcessTime < processInterval) return
+      lastProcessTime = now
+
+      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const landmarks = results.multiFaceLandmarks[0]
         
-        currentFace.boundingBox.yCenter = 
-          previousFace.boundingBox.yCenter * (1 - smoothingFactor) + 
-          currentFace.boundingBox.yCenter * smoothingFactor
+        // 얼굴 바운딩 박스 계산
+        let minX = 1, minY = 1, maxX = 0, maxY = 0
+        landmarks.forEach((landmark: any) => {
+          minX = Math.min(minX, landmark.x)
+          minY = Math.min(minY, landmark.y)
+          maxX = Math.max(maxX, landmark.x)
+          maxY = Math.max(maxY, landmark.y)
+        })
+
+        const currentFace = {
+          boundingBox: {
+            xCenter: (minX + maxX) / 2,
+            yCenter: (minY + maxY) / 2,
+            width: maxX - minX,
+            height: maxY - minY
+          }
+        }
+
+        if (previousFace) {
+          currentFace.boundingBox.xCenter = 
+            previousFace.boundingBox.xCenter * (1 - smoothingFactor) + 
+            currentFace.boundingBox.xCenter * smoothingFactor
+          
+          currentFace.boundingBox.yCenter = 
+            previousFace.boundingBox.yCenter * (1 - smoothingFactor) + 
+            currentFace.boundingBox.yCenter * smoothingFactor
+          
+          currentFace.boundingBox.width = 
+            previousFace.boundingBox.width * (1 - smoothingFactor) + 
+            currentFace.boundingBox.width * smoothingFactor
+          
+          currentFace.boundingBox.height = 
+            previousFace.boundingBox.height * (1 - smoothingFactor) + 
+            currentFace.boundingBox.height * smoothingFactor
+        }
         
-        currentFace.boundingBox.width = 
-          previousFace.boundingBox.width * (1 - smoothingFactor) + 
-          currentFace.boundingBox.width * smoothingFactor
-        
-        currentFace.boundingBox.height = 
-          previousFace.boundingBox.height * (1 - smoothingFactor) + 
-          currentFace.boundingBox.height * smoothingFactor
+        faces = [currentFace]
+        previousFace = {...currentFace}
+      } else if (previousFace) {
+        faces = [previousFace]
+      } else {
+        faces = []
       }
-      
-      faces = [currentFace]
-      previousFace = {...currentFace}
-    } else if (previousFace) {
-      faces = [previousFace]
-    } else {
-      faces = []
-    }
-  })
+    });
 
-  await faceMesh.initialize()
-  console.log('FaceMesh 초기화 완료')
+    console.log('Starting FaceMesh initialization');
+    await faceMesh.initialize();
+    console.log('FaceMesh initialization complete');
+  } catch (error) {
+    console.error('FaceMesh initialization error:', error);
+    throw error;
+  }
 }
 
 // 이미지 압축
@@ -154,7 +168,7 @@ const saveImage = () => {
   }
 }
 
-// 세그멘테이션 결과 처리
+// 세���멘테이션 결과 처리
 const onResults = (results: any) => {
   if (!canvasRef.value) return
 
@@ -182,53 +196,37 @@ const onResults = (results: any) => {
       )
     }
 
-    // 얼굴이 인식된 경우 옷과 모자 그리기
-    if (faces.length > 0) {
-      const face = faces[0]
-      const box = face.boundingBox
+    // 옷과 모자 그리기 (중앙 고정)
+    // 옷 그리기
+    if (clothesImageRef.value && store.selectedClothes) {
+      const clothesWidth = width * 0.4  // 화면 너비의 40%
+      const clothesHeight = (clothesWidth / clothesImageRef.value.width) * clothesImageRef.value.height
+      const clothesX = (width - clothesWidth) / 2  // 중앙 정렬
+      const clothesY = height * 0.4  // 화면 높이의 40% 위치에 배치
 
-      // 옷 그리기
-      if (clothesImageRef.value && store.selectedClothes) {
-        // 얼굴 크기에 따른 스케일 계산
-        const faceSize = box.width * width
-        const baseSize = width * 0.2
-        const scale = Math.max(0.8, 2 - (faceSize / baseSize))
+      ctx.drawImage(
+        clothesImageRef.value,
+        clothesX,
+        clothesY,
+        clothesWidth,
+        clothesHeight
+      )
+    }
 
-        const clothesWidth = width * 0.8 * scale
-        const clothesHeight = (clothesWidth / clothesImageRef.value.width) * clothesImageRef.value.height
-        const clothesX = box.xCenter * width - clothesWidth / 2
-        const baseOffset = box.height * height * 0.8
-        const clothesY = box.yCenter * height - (baseOffset * scale * 1.6)
+    // 모자 그리기
+    if (hatImageRef.value && store.selectedHat) {
+      const hatWidth = width * 0.3  // 화면 너비의 30%
+      const hatHeight = (hatWidth / hatImageRef.value.width) * hatImageRef.value.height
+      const hatX = (width - hatWidth) / 2  // 중앙 정렬
+      const hatY = height * 0.1  // 화면 높이의 10% 위치에 배치
 
-        ctx.drawImage(
-          clothesImageRef.value,
-          clothesX,
-          clothesY,
-          clothesWidth,
-          clothesHeight
-        )
-      }
-
-      // 모자 그리기
-      if (hatImageRef.value && store.selectedHat) {
-        const faceSize = box.width * width
-        const baseSize = width * 0.2
-        const scale = Math.max(0.8, 2 - (faceSize / baseSize))
-
-        const hatWidth = width * 0.6 * scale
-        const hatHeight = (hatWidth / hatImageRef.value.width) * hatImageRef.value.height
-        const hatX = box.xCenter * width - hatWidth / 2
-        const baseOffset = box.height * height * 1.5
-        const hatY = box.yCenter * height - (baseOffset * scale * 1.4)
-
-        ctx.drawImage(
-          hatImageRef.value,
-          hatX,
-          hatY,
-          hatWidth,
-          hatHeight
-        )
-      }
+      ctx.drawImage(
+        hatImageRef.value,
+        hatX,
+        hatY,
+        hatWidth,
+        hatHeight
+      )
     }
   } catch (error) {
     console.error('처리 오류:', error)
@@ -315,7 +313,7 @@ const startCamera = async () => {
       console.log('카메라 시작 완료')
     }
   } catch (error) {
-    console.error('카메라 시작 실패:', error)
+    console.error('카메라 시작 ���패:', error)
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
       alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용해주세요.')
     } else {

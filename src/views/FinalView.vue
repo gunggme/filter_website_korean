@@ -15,6 +15,7 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const clothesImageRef = ref<HTMLImageElement | null>(null)
 const hatImageRef = ref<HTMLImageElement | null>(null)
 const borderImageRef = ref<HTMLImageElement | null>(null)
+const characterImageRef = ref<HTMLImageElement | null>(null)
 let faceMesh: any = null
 let faces: any[] = []
 let previousFace: any = null
@@ -38,6 +39,11 @@ const borderImages: Record<number, () => Promise<typeof import('*.png')>> = {
   2: () => import('@/assets/borders/border2.png'),
   3: () => import('@/assets/borders/border3.png'),
   4: () => import('@/assets/borders/border4.png')
+}
+
+// 캐릭터 이미지 매핑
+const characterImages: Record<number, () => Promise<typeof import('*.png')>> = {
+  1: () => import('@/assets/characters/character1.png')
 }
 
 // Face Mesh 초기화
@@ -168,7 +174,7 @@ const saveImage = () => {
   }
 }
 
-// 세���멘테이션 결과 처리
+// 세멘테이션 결과 처리
 const onResults = (results: any) => {
   if (!canvasRef.value) return
 
@@ -196,37 +202,53 @@ const onResults = (results: any) => {
       )
     }
 
-    // 옷과 모자 그리기 (중앙 고정)
-    // 옷 그리기
-    if (clothesImageRef.value && store.selectedClothes) {
-      const clothesWidth = width * 0.4  // 화면 너비의 40%
-      const clothesHeight = (clothesWidth / clothesImageRef.value.width) * clothesImageRef.value.height
-      const clothesX = (width - clothesWidth) / 2  // 중앙 정렬
-      const clothesY = height * 0.4  // 화면 높이의 40% 위치에 배치
+    // 옷릭터가 선택된 경우 캐릭터만 그리기
+    if (characterImageRef.value && store.selectedCharacter) {
+      const characterWidth = width * 0.4
+      const characterHeight = (characterWidth / characterImageRef.value.width) * characterImageRef.value.height
+      const characterX = (width - characterWidth) / 2
+      const characterY = height * 0.4
 
       ctx.drawImage(
-        clothesImageRef.value,
-        clothesX,
-        clothesY,
-        clothesWidth,
-        clothesHeight
+        characterImageRef.value,
+        characterX,
+        characterY,
+        characterWidth,
+        characterHeight
       )
-    }
+    } else {
+      // 캐릭터가 선택되지 않은 경우 옷과 모자 그리기
+      // 옷 그리기
+      if (clothesImageRef.value && store.selectedClothes) {
+        const clothesWidth = width * 0.4
+        const clothesHeight = (clothesWidth / clothesImageRef.value.width) * clothesImageRef.value.height
+        const clothesX = (width - clothesWidth) / 2
+        const clothesY = height * 0.4
 
-    // 모자 그리기
-    if (hatImageRef.value && store.selectedHat) {
-      const hatWidth = width * 0.3  // 화면 너비의 30%
-      const hatHeight = (hatWidth / hatImageRef.value.width) * hatImageRef.value.height
-      const hatX = (width - hatWidth) / 2  // 중앙 정렬
-      const hatY = height * 0.1  // 화면 높이의 10% 위치에 배치
+        ctx.drawImage(
+          clothesImageRef.value,
+          clothesX,
+          clothesY,
+          clothesWidth,
+          clothesHeight
+        )
+      }
 
-      ctx.drawImage(
-        hatImageRef.value,
-        hatX,
-        hatY,
-        hatWidth,
-        hatHeight
-      )
+      // 모자 그리기
+      if (hatImageRef.value && store.selectedHat) {
+        const hatWidth = width * 0.3
+        const hatHeight = (hatWidth / hatImageRef.value.width) * hatImageRef.value.height
+        const hatX = (width - hatWidth) / 2
+        const hatY = height * 0.1
+
+        ctx.drawImage(
+          hatImageRef.value,
+          hatX,
+          hatY,
+          hatWidth,
+          hatHeight
+        )
+      }
     }
   } catch (error) {
     console.error('처리 오류:', error)
@@ -313,7 +335,7 @@ const startCamera = async () => {
       console.log('카메라 시작 완료')
     }
   } catch (error) {
-    console.error('카메라 시작 ���패:', error)
+    console.error('카메라 시작 실패:', error)
     if (error instanceof DOMException && error.name === 'NotAllowedError') {
       alert('카메라 권한이 필요합니다. 설정에서 카메라 권한을 허용해주세요.')
     } else {
@@ -346,7 +368,21 @@ const loadImages = async () => {
       borderImageRef.value = borderImg
     }
 
-    // 기존 이미지 로드 코드...
+    // 캐릭터 이미지 로드
+    if (store.selectedCharacter) {
+      const importedCharacter = await characterImages[store.selectedCharacter]()
+      const characterImg = new Image()
+      characterImg.src = importedCharacter.default
+      await new Promise((resolve, reject) => {
+        characterImg.onload = resolve
+        characterImg.onerror = reject
+      })
+      characterImageRef.value = characterImg
+    } else {
+      characterImageRef.value = null
+    }
+
+    // 옷 이미지 로드
     if (store.selectedClothes) {
       const importedClothes = await clothesImages[store.selectedClothes]()
       const clothesImg = new Image()
@@ -356,8 +392,11 @@ const loadImages = async () => {
         clothesImg.onerror = reject
       })
       clothesImageRef.value = clothesImg
+    } else {
+      clothesImageRef.value = null
     }
 
+    // 모자 이미지 로드
     if (store.selectedHat) {
       const importedHat = await hatImages[store.selectedHat]()
       const hatImg = new Image()
@@ -367,10 +406,18 @@ const loadImages = async () => {
         hatImg.onerror = reject
       })
       hatImageRef.value = hatImg
+    } else {
+      hatImageRef.value = null
     }
   } catch (error) {
     console.error('이미지 로드 실패:', error)
   }
+}
+
+// 캐릭터 선택
+const selectCharacter = (characterId: number) => {
+  store.setCharacter(characterId)
+  loadImages()
 }
 
 // 옷 선택
@@ -445,13 +492,31 @@ onUnmounted(() => {
         </div>
 
         <div class="filter-section">
+          <h3>옷릭터</h3>
+          <div class="filter-options">
+            <button
+              v-for="item in store.characters"
+              :key="item.id"
+              :class="{ active: store.selectedCharacter === item.id }"
+              @click="selectCharacter(store.selectedCharacter === item.id ? 0 : item.id)"
+            >
+              {{ item.name }}
+            </button>
+          </div>
+        </div>
+
+        <div class="filter-section">
           <h3>옷</h3>
           <div class="filter-options">
             <button
               v-for="item in store.clothes"
               :key="item.id"
-              :class="{ active: store.selectedClothes === item.id }"
-              @click="selectClothes(item.id)"
+              :class="{ 
+                active: store.selectedClothes === item.id,
+                disabled: store.selectedCharacter !== 0 
+              }"
+              @click="selectClothes(store.selectedClothes === item.id ? 0 : item.id)"
+              :disabled="store.selectedCharacter !== 0"
             >
               {{ item.name }}
             </button>
@@ -464,8 +529,12 @@ onUnmounted(() => {
             <button
               v-for="item in store.hats"
               :key="item.id"
-              :class="{ active: store.selectedHat === item.id }"
-              @click="selectHat(item.id)"
+              :class="{ 
+                active: store.selectedHat === item.id,
+                disabled: store.selectedCharacter !== 0 
+              }"
+              @click="selectHat(store.selectedHat === item.id ? 0 : item.id)"
+              :disabled="store.selectedCharacter !== 0"
             >
               {{ item.name }}
             </button>
@@ -640,5 +709,10 @@ video {
   .bottom-controls {
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
+}
+
+.filter-options button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style> 

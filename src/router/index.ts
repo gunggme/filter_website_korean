@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import CameraSetupView from '@/views/CameraSetupView.vue'
 import FinalView from '@/views/FinalView.vue'
+import PreviewView from '@/views/PreviewView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,9 +16,14 @@ const router = createRouter({
       component: CameraSetupView
     },
     {
-      path: '/filter',
-      name: 'filter',
+      path: '/final',
+      name: 'final',
       component: FinalView
+    },
+    {
+      path: '/preview',
+      name: 'preview',
+      component: PreviewView
     }
   ]
 })

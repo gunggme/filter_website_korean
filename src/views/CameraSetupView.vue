@@ -164,7 +164,7 @@ const handleNext = () => {
       height: videoRef.value?.videoHeight || 720
     })
     stopCamera()
-    router.push('/filter')
+    router.push('/final')
   }
 }
 
@@ -247,14 +247,14 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background-color: #FFFFFF;
+  background-color: #000000;
 }
 
 .toolbar {
   padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top));
   background-color: #6200EE;
   color: white;
-  /* elevation: 4; */
 }
 
 .toolbar h1 {
@@ -264,72 +264,81 @@ onUnmounted(() => {
 
 .content {
   flex: 1;
-  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  position: relative;
+  overflow: hidden;
 }
 
 .preview-container {
-  width: 100%;
-  aspect-ratio: 3/4;
-  background-color: #000000;
-  border-radius: 8px;
-  overflow: hidden;
+  flex: 1;
   position: relative;
-  margin: 0 auto;
-  max-width: 100vh;
+  width: 100%;
+  background-color: #000000;
+  overflow: hidden;
 }
 
 video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .camera-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 16px;
-  margin-top: auto;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+  z-index: 10;
 }
 
 .android-select {
   width: 100%;
   padding: 12px;
-  border: 1px solid #757575;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 4px;
-  background-color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.1);
   font-size: 16px;
-  color: #212121;
+  color: white;
   height: 48px;
 }
 
 .android-button {
   width: 100%;
   min-height: 48px;
+  background-color: #6200EE;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 500;
 }
 
 .android-button:disabled {
-  background-color: #BDBDBD;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* 안드로이드 대응을 위한 추가 스타일 */
+/* 가로 모드 방지 */
 @media screen and (orientation: landscape) {
-  .preview-container {
-    aspect-ratio: 4/3;
-    max-height: 80vh;
-  }
-
-  .camera-controls {
+  .android-screen {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background: rgba(255, 255, 255, 0.9);
-    z-index: 1000;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    transform-origin: center center;
+    width: 100vh;
+    height: 100vw;
+    background: #000;
   }
 }
 </style> 

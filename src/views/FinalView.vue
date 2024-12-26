@@ -151,59 +151,100 @@ const startCapture = async () => {
 // 이미지 캡처 및 저장
 const captureImage = () => {
   const cameraView = document.querySelector('.camera-view')
-  if (!cameraView) return
+  if (!cameraView || !canvasRef.value) return
 
   try {
+    // 원본 비디오/캔버스의 크기와 비율 계산
+    const originalWidth = canvasRef.value.width
+    const originalHeight = canvasRef.value.height
+    const aspectRatio = originalWidth / originalHeight
+
+    // 새 캔버스 생성
     const finalCanvas = document.createElement('canvas')
     const ctx = finalCanvas.getContext('2d')
     if (!ctx) return
 
-    // 원버스 크기 설정
-    finalCanvas.width = canvasRef.value?.width || 1920
-    finalCanvas.height = canvasRef.value?.height || 1080
+    // 세로 모드 기준으로 캔버스 크기 설정 (9:16 비율)
+    finalCanvas.width = 1080
+    finalCanvas.height = 1920
 
-    // 1. 비디오/캔버스 내용을 좌우 반전하여 그리기
-    if (canvasRef.value) {
-      ctx.save()
-      ctx.scale(-1, 1)  // 좌우 반전
-      ctx.drawImage(canvasRef.value, -finalCanvas.width, 0, finalCanvas.width, finalCanvas.height)
-      ctx.restore()
+    // 실제 그리기 영역 계산
+    const drawWidth = finalCanvas.width
+    const drawHeight = drawWidth / aspectRatio
+    const yOffset = (finalCanvas.height - drawHeight) / 2
+
+    // 1. 비디오/캔버스 내용 그리기
+    ctx.save()
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height)
+    ctx.scale(-1, 1)  // 좌우 반전
+    ctx.drawImage(
+      canvasRef.value,
+      -finalCanvas.width,
+      yOffset,
+      drawWidth,
+      drawHeight
+    )
+    ctx.restore()
+
+    // 2. 오버레이 이미지들을 순서대로 그리기
+    const characterOverlay = cameraView.querySelector('.character-overlay')
+    const clothesOverlay = cameraView.querySelector('.clothes-overlay')
+    const hatOverlay = cameraView.querySelector('.hat-overlay')
+    const borderOverlay = cameraView.querySelector('.border-overlay')
+
+    const drawOverlay = (overlay: Element | null) => {
+      if (overlay && overlay instanceof HTMLImageElement && overlay.style.display !== 'none') {
+        // 이미지의 원본 크기 가져오기
+        const naturalWidth = overlay.naturalWidth
+        const naturalHeight = overlay.naturalHeight
+        const imageAspect = naturalWidth / naturalHeight
+
+        let width, height
+        if (overlay.classList.contains('character-overlay')) {
+          // 캐릭터는 화면 높이의 90%로 설정
+          height = finalCanvas.height * 0.9
+          width = height * imageAspect
+        } else if (overlay.classList.contains('clothes-overlay')) {
+          // 옷은 화면 높이의 42%로 설정 (60% * 0.7 = 42%)
+          height = finalCanvas.height * 0.8
+          width = height * imageAspect
+        } else if (overlay.classList.contains('hat-overlay')) {
+          // 모자는 화면 높이의 28%로 설정 (40% * 0.7 = 28%)
+          height = finalCanvas.height * 0.28
+          width = height * imageAspect
+        } else {
+          // 테두리는 전체 화면 크기로
+          width = finalCanvas.width
+          height = finalCanvas.height
+        }
+
+        // 중앙 위치 계산
+        const x = (finalCanvas.width - width) / 2
+        let y
+        if (overlay.classList.contains('character-overlay')) {
+          y = (finalCanvas.height - height) / 2
+        } else if (overlay.classList.contains('clothes-overlay')) {
+          y = finalCanvas.height * 0.6 - height / 2  // 0.55에서 0.65로 수정하여 더 아래로 이동
+        } else if (overlay.classList.contains('hat-overlay')) {
+          y = finalCanvas.height * 0.25 - height / 2  // 위쪽에 배치
+        } else {
+          y = 0  // 테두리는 최상단부터
+        }
+
+        ctx.drawImage(overlay, x, y, width, height)
+      }
     }
 
-    // 2. 오버레이 이미지들 그리기
-    const overlays = cameraView.querySelectorAll('img')
-    overlays.forEach(overlay => {
-      if (overlay.style.display !== 'none' && overlay instanceof HTMLImageElement) {
-        const rect = overlay.getBoundingClientRect()
-        const cameraRect = cameraView.getBoundingClientRect()
-        
-        // 상대적 위치와 크기 계산
-        const relativeX = (rect.x - cameraRect.x) * (finalCanvas.width / cameraRect.width)
-        const relativeY = (rect.y - cameraRect.y) * (finalCanvas.height / cameraRect.height)
-        const relativeWidth = rect.width * (finalCanvas.width / cameraRect.width)
-        const relativeHeight = rect.height * (finalCanvas.height / cameraRect.height)
-
-        // transform 스타일 파싱
-        const transform = overlay.style.transform
-        const translateMatch = transform.match(/translate\(-50%, -50%\)/)
-        const scaleMatch = transform.match(/scale\(([\d.]+)\)/)
-        const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1
-
-        // 이미지 그리기
-        ctx.save()
-        
-        // 중앙 정렬이 적용된 경우
-        if (translateMatch) {
-          ctx.translate(relativeX + relativeWidth / 2, relativeY + relativeHeight / 2)
-          if (scale !== 1) ctx.scale(scale, scale)
-          ctx.drawImage(overlay, -relativeWidth / 2, -relativeHeight / 2, relativeWidth, relativeHeight)
-        } else {
-          ctx.drawImage(overlay, relativeX, relativeY, relativeWidth, relativeHeight)
-        }
-        
-        ctx.restore()
-      }
-    })
+    // 렌더링 순서: 캐릭터 -> 옷 -> 모자 -> 테두리
+    if (selectedCharacter.value !== 0) {
+      drawOverlay(characterOverlay)
+    } else {
+      // 캐릭터가 선택되지 않은 경우에만 옷과 모자 그리기
+      drawOverlay(clothesOverlay)
+      drawOverlay(hatOverlay)
+    }
+    drawOverlay(borderOverlay)
 
     // 최종 이미지를 base64 문자열로 변환
     const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.8)
@@ -468,7 +509,7 @@ onUnmounted(() => {
 .camera-view {
   width: 100%;
   height: 0;
-  padding-bottom: 177.78%; /* 16:9 비율을 위한 ���딩 (9/16 * 100) */
+  padding-bottom: 177.78%; /* 세로 모드에서 16:9 비율 유지 */
   position: relative;
   background: #000;
   overflow: hidden;
@@ -551,16 +592,10 @@ canvas {
   background: rgba(255,255,255,0.2);
 }
 
-/* 가로 모드 방지 */
+/* 가로 모드 방지 스타일 제거 */
 @media screen and (orientation: landscape) {
   .camera-app {
-    transform: rotate(-90deg);
-    transform-origin: left top;
-    width: 100vh;
-    height: 100vw;
-    position: absolute;
-    top: 100%;
-    left: 0;
+    /* 가로 모드 강제 변환 스타일 제거 */
   }
 }
 
@@ -673,8 +708,8 @@ canvas {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 100%;
-  height: 100%;
+  width: 130%;
+  height: 130%;
   transform: translate(-50%, -50%);
   z-index: 1;
   pointer-events: none;
@@ -685,8 +720,8 @@ canvas {
   position: absolute;
   top: 60%;
   left: 50%;
-  width: 60%;
-  height: 60%;
+  width: 80%;
+  height: 80%;
   transform: translate(-50%, -50%);
   z-index: 1;
   pointer-events: none;
@@ -695,10 +730,10 @@ canvas {
 
 .hat-overlay {
   position: absolute;
-  top: 20%;
+  top: 30%;
   left: 50%;
-  width: 40%;
-  height: 40%;
+  width: 45%;
+  height: 45%;
   transform: translate(-50%, -50%);
   z-index: 2;
   pointer-events: none;

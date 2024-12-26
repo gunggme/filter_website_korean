@@ -132,6 +132,12 @@ const startCapture = async () => {
   const countdownInterval = setInterval(() => {
     countdown.value--
     
+    // 카운트다운이 1초일 때 카메라 사운드 재생
+    if (countdown.value === 1) {
+      const audio = new Audio(new URL('../assets/camerasound.mp3', import.meta.url).href)
+      audio.play()
+    }
+    
     if (countdown.value === 0) {
       clearInterval(countdownInterval)
       setTimeout(() => {
@@ -144,48 +150,60 @@ const startCapture = async () => {
 
 // 이미지 캡처 및 저장
 const captureImage = () => {
-  if (!canvasRef.value) return
+  const cameraView = document.querySelector('.camera-view')
+  if (!cameraView) return
 
   try {
-    // 전체 화면을 캡처하기 위한 새로운 캔버스 생성
     const finalCanvas = document.createElement('canvas')
     const ctx = finalCanvas.getContext('2d')
     if (!ctx) return
 
-    // 원본 캔버스와 동일한 크기로 설정
-    finalCanvas.width = canvasRef.value.width
-    finalCanvas.height = canvasRef.value.height
+    // 원버스 크기 설정
+    finalCanvas.width = canvasRef.value?.width || 1920
+    finalCanvas.height = canvasRef.value?.height || 1080
 
-    // 1. 원본 비디오/캔버스 내용 그리기
-    ctx.drawImage(canvasRef.value, 0, 0)
-
-    // 2. 선택된 요소들 순서대로 그리기
-    const cameraView = document.querySelector('.camera-view')
-    if (cameraView) {
-      // 캐릭터 이미지
-      const characterImg = cameraView.querySelector('.character-overlay') as HTMLImageElement
-      if (characterImg && characterImg.complete) {
-        ctx.drawImage(characterImg, 0, 0, finalCanvas.width, finalCanvas.height)
-      }
-
-      // 옷 이미지 (캐릭터가 없을 때만)
-      const clothesImg = cameraView.querySelector('.clothes-overlay') as HTMLImageElement
-      if (clothesImg && clothesImg.complete && !selectedCharacter.value) {
-        ctx.drawImage(clothesImg, 0, 0, finalCanvas.width, finalCanvas.height)
-      }
-
-      // 모자 이미지 (캐릭터가 없을 때만)
-      const hatImg = cameraView.querySelector('.hat-overlay') as HTMLImageElement
-      if (hatImg && hatImg.complete && !selectedCharacter.value) {
-        ctx.drawImage(hatImg, 0, 0, finalCanvas.width, finalCanvas.height)
-      }
-
-      // 테두리 이미지
-      const borderImg = cameraView.querySelector('.border-overlay') as HTMLImageElement
-      if (borderImg && borderImg.complete) {
-        ctx.drawImage(borderImg, 0, 0, finalCanvas.width, finalCanvas.height)
-      }
+    // 1. 비디오/캔버스 내용을 좌우 반전하여 그리기
+    if (canvasRef.value) {
+      ctx.save()
+      ctx.scale(-1, 1)  // 좌우 반전
+      ctx.drawImage(canvasRef.value, -finalCanvas.width, 0, finalCanvas.width, finalCanvas.height)
+      ctx.restore()
     }
+
+    // 2. 오버레이 이미지들 그리기
+    const overlays = cameraView.querySelectorAll('img')
+    overlays.forEach(overlay => {
+      if (overlay.style.display !== 'none' && overlay instanceof HTMLImageElement) {
+        const rect = overlay.getBoundingClientRect()
+        const cameraRect = cameraView.getBoundingClientRect()
+        
+        // 상대적 위치와 크기 계산
+        const relativeX = (rect.x - cameraRect.x) * (finalCanvas.width / cameraRect.width)
+        const relativeY = (rect.y - cameraRect.y) * (finalCanvas.height / cameraRect.height)
+        const relativeWidth = rect.width * (finalCanvas.width / cameraRect.width)
+        const relativeHeight = rect.height * (finalCanvas.height / cameraRect.height)
+
+        // transform 스타일 파싱
+        const transform = overlay.style.transform
+        const translateMatch = transform.match(/translate\(-50%, -50%\)/)
+        const scaleMatch = transform.match(/scale\(([\d.]+)\)/)
+        const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1
+
+        // 이미지 그리기
+        ctx.save()
+        
+        // 중앙 정렬이 적용된 경우
+        if (translateMatch) {
+          ctx.translate(relativeX + relativeWidth / 2, relativeY + relativeHeight / 2)
+          if (scale !== 1) ctx.scale(scale, scale)
+          ctx.drawImage(overlay, -relativeWidth / 2, -relativeHeight / 2, relativeWidth, relativeHeight)
+        } else {
+          ctx.drawImage(overlay, relativeX, relativeY, relativeWidth, relativeHeight)
+        }
+        
+        ctx.restore()
+      }
+    })
 
     // 최종 이미지를 base64 문자열로 변환
     const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.8)
@@ -450,9 +468,10 @@ onUnmounted(() => {
 .camera-view {
   width: 100%;
   height: 0;
-  padding-bottom: 177.78%; /* 16:9 비율을 위한 패딩 (9/16 * 100) */
+  padding-bottom: 177.78%; /* 16:9 비율을 위한 ���딩 (9/16 * 100) */
   position: relative;
   background: #000;
+  overflow: hidden;
 }
 
 video {
@@ -462,6 +481,7 @@ video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scaleX(-1);
 }
 
 canvas {
@@ -471,6 +491,7 @@ canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: scaleX(-1);
 }
 
 .bottom-controls {
@@ -649,27 +670,39 @@ canvas {
 }
 
 .character-overlay {
-  top: 0;
-  left: 0;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
   z-index: 1;
+  pointer-events: none;
+  object-fit: contain;
 }
 
 .clothes-overlay {
-  top: 20%;  /* 상단에서 20% 떨어진 위치 */
-  left: 0;
-  width: 100%;
-  height: 80%;  /* 전체 높이의 80%만 사용 */
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  width: 60%;
+  height: 60%;
+  transform: translate(-50%, -50%);
   z-index: 1;
-  transform: scale(1.2);  /* 약간 크기 조정 */
+  pointer-events: none;
+  object-fit: contain;
 }
 
 .hat-overlay {
-  top: 5%;  /* 상단에서 5% 떨어진 위치 */
-  left: 0;
-  width: 100%;
-  height: 40%;  /* 전체 높이의 40%만 사용 */
+  position: absolute;
+  top: 20%;
+  left: 50%;
+  width: 40%;
+  height: 40%;
+  transform: translate(-50%, -50%);
   z-index: 2;
-  transform: scale(0.8);  /* 약간 크기 조정 */
+  pointer-events: none;
+  object-fit: contain;
 }
 
 .border-overlay {

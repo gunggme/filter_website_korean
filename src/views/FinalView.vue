@@ -286,36 +286,30 @@ const selectedCharacter = ref(store.selectedCharacter)
 
 // 선택 핸들러들
 const handleClothesSelect = (id: number) => {
-  // 같은 버튼을 누르면 선택 해제
-  if (selectedClothes.value === id) {
-    selectedClothes.value = 0
-    store.setClothes(0)
-  } else {
-    selectedClothes.value = id
-    store.setClothes(id)
+  selectedClothes.value = selectedClothes.value === id ? 0 : id
+  store.setClothes(selectedClothes.value)
+  if (selectedClothes.value !== 0) {
+    // 한복이 선택되면 캐릭터 비활성화
+    selectedCharacter.value = 0
+    store.setCharacter(0)
   }
 }
 
 const handleHatSelect = (id: number) => {
-  // 같은 버튼을 누르면 선택 해제
-  if (selectedHat.value === id) {
-    selectedHat.value = 0
-    store.setHat(0)
-  } else {
-    selectedHat.value = id
-    store.setHat(id)
+  selectedHat.value = selectedHat.value === id ? 0 : id
+  store.setHat(selectedHat.value)
+  if (selectedHat.value !== 0) {
+    // 모자가 선택되면 캐릭터 비활성화
+    selectedCharacter.value = 0
+    store.setCharacter(0)
   }
 }
 
 const handleCharacterSelect = (id: number) => {
-  // 같은 버튼을 누르면 선택 해제
-  if (selectedCharacter.value === id) {
-    selectedCharacter.value = 0
-    store.setCharacter(0)
-  } else {
-    selectedCharacter.value = id
-    store.setCharacter(id)
-    // 캐릭터가 선택되면 옷과 모자 선택 해제
+  selectedCharacter.value = selectedCharacter.value === id ? 0 : id
+  store.setCharacter(selectedCharacter.value)
+  if (selectedCharacter.value !== 0) {
+    // 캐릭터가 선택되면 한복과 모자 비활성화
     selectedClothes.value = 0
     selectedHat.value = 0
     store.setClothes(0)
@@ -426,33 +420,25 @@ onUnmounted(() => {
       </div>
 
       <!-- 옷과 모자 선택 -->
-      <div class="selector-section" :class="{ 'disabled': selectedCharacter !== 0 }">
+      <div class="selector-section">
         <button 
           v-for="cloth in store.clothes" 
           :key="cloth.id"
           class="item-button"
-          :class="{ 
-            'selected': selectedClothes === cloth.id,
-            'disabled': selectedCharacter !== 0 
-          }"
+          :class="{ 'selected': selectedClothes === cloth.id }"
           @click="handleClothesSelect(cloth.id)"
-          :disabled="selectedCharacter !== 0"
         >
           {{ cloth.name }}
         </button>
       </div>
 
-      <div class="selector-section" :class="{ 'disabled': selectedCharacter !== 0 }">
+      <div class="selector-section">
         <button 
           v-for="hat in store.hats" 
           :key="hat.id"
           class="item-button"
-          :class="{ 
-            'selected': selectedHat === hat.id,
-            'disabled': selectedCharacter !== 0 
-          }"
+          :class="{ 'selected': selectedHat === hat.id }"
           @click="handleHatSelect(hat.id)"
-          :disabled="selectedCharacter !== 0"
         >
           {{ hat.name }}
         </button>

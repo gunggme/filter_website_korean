@@ -46,6 +46,70 @@ const qrImageData = ref('')
 const isUploading = ref(false)
 const uploadError = ref('')
 
+// 제스처 관련 상태 추가
+const startDistance = ref(0)
+const startAngle = ref(0)
+const isGesturing = ref(false)
+
+// 제스처 시작
+const startGesture = (event: TouchEvent, index: number) => {
+  if (event.touches.length === 2) {
+    event.preventDefault()
+    isGesturing.value = true
+    selectedSticker.value = index
+
+    // 두 손가락 사이의 거리 계산
+    const touch1 = event.touches[0]
+    const touch2 = event.touches[1]
+    startDistance.value = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    )
+
+    // 회전 각도 계산
+    startAngle.value = Math.atan2(
+      touch2.clientY - touch1.clientY,
+      touch2.clientX - touch1.clientX
+    )
+  }
+}
+
+// 제스처 진행
+const onGesture = (event: TouchEvent) => {
+  if (!isGesturing.value || selectedSticker.value === null || event.touches.length !== 2) return
+  
+  event.preventDefault()
+  const touch1 = event.touches[0]
+  const touch2 = event.touches[1]
+
+  // 현재 거리 계산
+  const currentDistance = Math.hypot(
+    touch2.clientX - touch1.clientX,
+    touch2.clientY - touch1.clientY
+  )
+
+  // 현재 각도 계산
+  const currentAngle = Math.atan2(
+    touch2.clientY - touch1.clientY,
+    touch2.clientX - touch1.clientX
+  )
+
+  // 크기 변경
+  const scaleDelta = (currentDistance - startDistance.value) * 0.01
+  adjustScale(selectedSticker.value, scaleDelta)
+  startDistance.value = currentDistance
+
+  // 회전 변경
+  const rotationDelta = ((currentAngle - startAngle.value) * 180) / Math.PI
+  rotateSticker(selectedSticker.value, rotationDelta)
+  startAngle.value = currentAngle
+}
+
+// 제스처 종료
+const endGesture = () => {
+  isGesturing.value = false
+}
+
 // 이미지 로드
 onMounted(() => {
   const imageData = sessionStorage.getItem('capturedImage')
@@ -62,6 +126,8 @@ onMounted(() => {
   window.addEventListener('touchmove', onDrag)
   window.addEventListener('mouseup', endDrag)
   window.addEventListener('touchend', endDrag)
+  window.addEventListener('touchmove', onGesture)
+  window.addEventListener('touchend', endGesture)
 })
 
 // 컴포넌트 언마운트 시 이미지 데이터 정리
@@ -76,6 +142,8 @@ onUnmounted(() => {
   window.removeEventListener('touchmove', onDrag)
   window.removeEventListener('mouseup', endDrag)
   window.removeEventListener('touchend', endDrag)
+  window.removeEventListener('touchmove', onGesture)
+  window.removeEventListener('touchend', endGesture)
 })
 
 // 다시 찍기
@@ -113,10 +181,11 @@ const startDrag = (event: MouseEvent | TouchEvent, index: number) => {
   selectedSticker.value = index
   
   const pos = 'touches' in event ? event.touches[0] : event
-  const rect = (event.target as HTMLElement).getBoundingClientRect()
+  const sticker = placedStickers.value[index]
+  
   startPos.value = {
-    x: pos.clientX - rect.left,
-    y: pos.clientY - rect.top
+    x: pos.clientX - sticker.x,
+    y: pos.clientY - sticker.y
   }
 }
 
@@ -127,13 +196,40 @@ const onDrag = (event: MouseEvent | TouchEvent) => {
   event.preventDefault()
   const pos = 'touches' in event ? event.touches[0] : event
   
+  // 현재 스티커 위치 업데이트
   placedStickers.value[selectedSticker.value].x = pos.clientX - startPos.value.x
   placedStickers.value[selectedSticker.value].y = pos.clientY - startPos.value.y
+
+  // 화면 하단 중앙 영역에 들어왔는지 확인
+  const deleteZoneY = window.innerHeight - 100  // 하단에서 100px 위
+  if (pos.clientY > deleteZoneY && 
+      pos.clientX > window.innerWidth * 0.4 && 
+      pos.clientX < window.innerWidth * 0.6) {
+    // 삭제 영역 표시
+    document.body.style.setProperty('--delete-zone-opacity', '1')
+  } else {
+    document.body.style.setProperty('--delete-zone-opacity', '0')
+  }
 }
 
 // 스티커 드래그 종료
 const endDrag = () => {
+  if (isDragging.value && selectedSticker.value !== null) {
+    const sticker = placedStickers.value[selectedSticker.value]
+    const deleteZoneY = window.innerHeight - 100
+
+    // 스티커가 삭제 영역에 있는지 확인
+    if (sticker.y > deleteZoneY && 
+        sticker.x > window.innerWidth * 0.4 && 
+        sticker.x < window.innerWidth * 0.6) {
+      // 스티커 삭제
+      placedStickers.value.splice(selectedSticker.value, 1)
+      selectedSticker.value = null
+    }
+  }
+  
   isDragging.value = false
+  document.body.style.setProperty('--delete-zone-opacity', '0')
 }
 
 // 스티커 크기 조절
@@ -212,7 +308,7 @@ const handleSave = async () => {
     const byteArray = new Uint8Array(byteNumbers)
     const blob = new Blob([byteArray], { type: 'image/png' })
     
-    // FormData 생성 및 파일 ���가
+    // FormData 성 및 파일 가
     const formData = new FormData()
     formData.append('file', blob, 'photo.png')
     
@@ -262,22 +358,21 @@ const closeQRModal = () => {
         :style="{
           left: `${sticker.x}px`,
           top: `${sticker.y}px`,
-          transform: `scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
+          transform: `translate(-50%, -50%) scale(${sticker.scale}) rotate(${sticker.rotation}deg)`,
           zIndex: selectedSticker === index ? 2 : 1
         }"
         @mousedown="startDrag($event, index)"
-        @touchstart="startDrag($event, index)"
+        @touchstart="(e) => {
+          if (e.touches.length === 1) startDrag(e, index);
+          else startGesture(e, index);
+        }"
       >
         <img :src="sticker.url" alt="sticker" draggable="false" />
-        
-        <!-- 선택된 스티커 컨트롤 -->
-        <div v-if="selectedSticker === index" class="sticker-controls">
-          <button @click.stop="adjustScale(index, -0.1)" class="control-button">-</button>
-          <button @click.stop="adjustScale(index, 0.1)" class="control-button">+</button>
-          <button @click.stop="rotateSticker(index, -45)" class="control-button">↺</button>
-          <button @click.stop="rotateSticker(index, 45)" class="control-button">↻</button>
-          <button @click.stop="deleteSticker(index)" class="control-button delete">×</button>
-        </div>
+      </div>
+
+      <!-- 삭제 영역 표시 -->
+      <div class="delete-zone">
+        여기로 드래그하여 삭제
       </div>
     </div>
 
@@ -339,13 +434,10 @@ const closeQRModal = () => {
 
 .image-container {
   position: relative;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: #000;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .preview-image {
@@ -488,8 +580,10 @@ const closeQRModal = () => {
   position: absolute;
   cursor: move;
   user-select: none;
-  transform-origin: center;
-  touch-action: none;  /* 추가: 모바일에서 스크롤 방지 */
+  z-index: 999;
+  pointer-events: auto;
+  transform-origin: center center;
+  transform: translate(-50%, -50%);
 }
 
 .sticker.selected {
@@ -500,6 +594,7 @@ const closeQRModal = () => {
   width: 100px;
   height: auto;
   pointer-events: none;
+  transform-origin: center center;
 }
 
 .sticker-controls {
@@ -512,24 +607,28 @@ const closeQRModal = () => {
   background: rgba(0, 0, 0, 0.7);
   padding: 4px;
   border-radius: 4px;
+  white-space: nowrap;
+  z-index: 1000;
 }
 
-.control-button {
+.control-button.delete {
   width: 30px;
   height: 30px;
   border: none;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 0, 0, 0.5);
   color: white;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  margin: 0;
 }
 
-.control-button.delete {
-  background: rgba(255, 0, 0, 0.5);
+.control-button.delete:active {
+  background: rgba(255, 0, 0, 0.7);
 }
 
 .sticker-panel {
@@ -570,5 +669,27 @@ const closeQRModal = () => {
   width: 80%;
   height: 80%;
   object-fit: contain;
+}
+
+.delete-zone {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(255, 0, 0, 0.7);
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  opacity: var(--delete-zone-opacity, 0);
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* 삭제 관련 스타일 제거 */
+.sticker-controls,
+.control-button.delete {
+  display: none;
 }
 </style> 

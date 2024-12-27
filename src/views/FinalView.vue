@@ -127,7 +127,7 @@ const startCapture = async () => {
   if (isCountingDown.value) return
   
   isCountingDown.value = true
-  countdown.value = 3
+  countdown.value = 5
 
   const countdownInterval = setInterval(() => {
     countdown.value--
@@ -381,7 +381,7 @@ onUnmounted(() => {
           alt="hat"
         />
         
-        <!-- 카운트다운 오버레이 -->
+        <!-- 카운트다운 오��레이 -->
         <div 
           v-if="isCountingDown" 
           class="countdown-overlay"
@@ -419,23 +419,20 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <!-- 옷과 모자 선택 -->
+      <!-- 한복과 모자 선택 (하나의 섹션으로 통합) -->
       <div class="selector-section">
         <button 
           v-for="cloth in store.clothes" 
-          :key="cloth.id"
+          :key="'cloth_' + cloth.id"
           class="item-button"
           :class="{ 'selected': selectedClothes === cloth.id }"
           @click="handleClothesSelect(cloth.id)"
         >
           {{ cloth.name }}
         </button>
-      </div>
-
-      <div class="selector-section">
         <button 
           v-for="hat in store.hats" 
-          :key="hat.id"
+          :key="'hat_' + hat.id"
           class="item-button"
           :class="{ 'selected': selectedHat === hat.id }"
           @click="handleHatSelect(hat.id)"
@@ -578,7 +575,7 @@ canvas {
   background: rgba(255,255,255,0.2);
 }
 
-/* 가로 모드 방지 스타일 제거 */
+/* 가��� 모드 방지 스타일 제거 */
 @media screen and (orientation: landscape) {
   .camera-app {
     /* 가로 모드 강제 변환 스타일 제거 */
@@ -654,6 +651,12 @@ canvas {
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 5px;
+  flex-wrap: nowrap;  /* 한 줄에 모든 버튼이 표시되도록 */
+  -webkit-overflow-scrolling: touch;  /* iOS에서 부드러운 스크롤 */
+}
+
+.selector-section::-webkit-scrollbar {
+  display: none;  /* 스크롤바 숨기기 */
 }
 
 .item-button {

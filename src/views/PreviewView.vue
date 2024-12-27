@@ -40,7 +40,7 @@ const selectedSticker = ref<number | null>(null)
 const isDragging = ref(false)
 const startPos = ref({ x: 0, y: 0 })
 
-// QR ���달 관련 상태
+// QR �����달 관련 상태
 const showQRModal = ref(false)
 const qrImageData = ref('')
 const isUploading = ref(false)
@@ -274,9 +274,14 @@ const compositeImage = async () => {
     await new Promise((resolve) => { stickerImg.onload = resolve })
 
     ctx.save()
-    ctx.translate(sticker.x * (img.width / window.innerWidth), sticker.y * (img.height / window.innerHeight))
+    // X 위치는 그대로, Y 위치는 0.8로 나눔
+    ctx.translate(
+      sticker.x * (img.width / window.innerWidth), 
+      (sticker.y * (img.height / window.innerHeight)) / 0.8
+    )
     ctx.rotate(sticker.rotation * Math.PI / 180)
-    ctx.scale(sticker.scale, sticker.scale)
+    // 크기를 2.5로 나눔
+    ctx.scale(sticker.scale / 2.5, sticker.scale / 2.5)
     ctx.drawImage(stickerImg, -stickerImg.width/2, -stickerImg.height/2)
     ctx.restore()
   }

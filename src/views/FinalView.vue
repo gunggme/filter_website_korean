@@ -23,15 +23,9 @@ const getBorderImageUrl = (id: number) => {
 }
 
 // 테두리 선택 핸들러
-const handleBorderSelect = (borderId: number) => {
-  // 같은 버튼을 누르면 선택 해제
-  if (selectedBorder.value === borderId) {
-    selectedBorder.value = 0
-    store.setBorder(0)
-  } else {
-    selectedBorder.value = borderId
-    store.setBorder(borderId)
-  }
+const handleBorderSelect = (id: number) => {
+  selectedBorder.value = selectedBorder.value === id ? 0 : id
+  store.setBorder(selectedBorder.value)
 }
 
 // 안드로이드 체크 함수
@@ -127,7 +121,7 @@ const startCapture = async () => {
   if (isCountingDown.value) return
   
   isCountingDown.value = true
-  countdown.value = 5
+  countdown.value = 3
 
   const countdownInterval = setInterval(() => {
     countdown.value--
@@ -190,7 +184,6 @@ const captureImage = () => {
     // 2. 오버레이 이미지들을 순서대로 그리기
     const characterOverlay = cameraView.querySelector('.character-overlay')
     const clothesOverlay = cameraView.querySelector('.clothes-overlay')
-    const hatOverlay = cameraView.querySelector('.hat-overlay')
     const borderOverlay = cameraView.querySelector('.border-overlay')
 
     const drawOverlay = (overlay: Element | null) => {
@@ -206,12 +199,8 @@ const captureImage = () => {
           height = finalCanvas.height * 0.9
           width = height * imageAspect
         } else if (overlay.classList.contains('clothes-overlay')) {
-          // 옷은 화면 높이의 42%로 설정 (60% * 0.7 = 42%)
-          height = finalCanvas.height * 0.8
-          width = height * imageAspect
-        } else if (overlay.classList.contains('hat-overlay')) {
-          // 모자는 화면 높이의 28%로 설정 (40% * 0.7 = 28%)
-          height = finalCanvas.height * 0.28
+          // 옷은 화면 높이의 120%로 설정
+          height = finalCanvas.height * 0.7
           width = height * imageAspect
         } else {
           // 테두리는 전체 화면 크기로
@@ -223,11 +212,9 @@ const captureImage = () => {
         const x = (finalCanvas.width - width) / 2
         let y
         if (overlay.classList.contains('character-overlay')) {
-          y = (finalCanvas.height - height) / 2
+          y = finalCanvas.height * 0.5 - height / 2  // 50% 위치
         } else if (overlay.classList.contains('clothes-overlay')) {
-          y = finalCanvas.height * 0.6 - height / 2  // 0.55에서 0.65로 수정하여 더 아래로 이동
-        } else if (overlay.classList.contains('hat-overlay')) {
-          y = finalCanvas.height * 0.25 - height / 2  // 위쪽에 배치
+          y = finalCanvas.height * 0.65 - height / 2  // 65% 위치
         } else {
           y = 0  // 테두리는 최상단부터
         }
@@ -236,15 +223,17 @@ const captureImage = () => {
       }
     }
 
-    // 렌더링 순서: 캐릭터 -> 옷 -> 모자 -> 테두리
+    // 렌더링 순서: 캐(캐릭터) -> 테두리
     if (selectedCharacter.value !== 0) {
       drawOverlay(characterOverlay)
-    } else {
-      // 캐릭터가 선택되지 않은 경우에만 옷과 모자 그리기
+    } else if (selectedClothes.value !== 0) {
       drawOverlay(clothesOverlay)
-      drawOverlay(hatOverlay)
     }
-    drawOverlay(borderOverlay)
+    
+    // 테두리는 마지막에 그리기
+    if (selectedBorder.value !== 0) {
+      drawOverlay(borderOverlay)
+    }
 
     // 최종 이미지를 base64 문자열로 변환
     const dataUrl = finalCanvas.toDataURL('image/jpeg', 0.8)
@@ -268,11 +257,7 @@ const captureImage = () => {
 
 // 이미지 URL 생성 함수들
 const getClothesImageUrl = (id: number) => {
-  return new URL(`../assets/clothes/traditional.png`, import.meta.url).href
-}
-
-const getHatImageUrl = (id: number) => {
-  return new URL(`../assets/hats/traditional.png`, import.meta.url).href
+  return new URL(`../assets/clothes/traditional${id}.png`, import.meta.url).href
 }
 
 const getCharacterImageUrl = (id: number) => {
@@ -281,40 +266,25 @@ const getCharacterImageUrl = (id: number) => {
 
 // 선택 상태 관리
 const selectedClothes = ref(store.selectedClothes)
-const selectedHat = ref(store.selectedHat)
 const selectedCharacter = ref(store.selectedCharacter)
 
 // 선택 핸들러들
 const handleClothesSelect = (id: number) => {
+  if (selectedCharacter.value !== 0) {
+    // 캐릭터가 선택된 상태에서는 옷을 선택할 수 없음
+    return
+  }
   selectedClothes.value = selectedClothes.value === id ? 0 : id
   store.setClothes(selectedClothes.value)
-  if (selectedClothes.value !== 0) {
-    // 한복이 선택되면 캐릭터 비활성화
-    selectedCharacter.value = 0
-    store.setCharacter(0)
-  }
-}
-
-const handleHatSelect = (id: number) => {
-  selectedHat.value = selectedHat.value === id ? 0 : id
-  store.setHat(selectedHat.value)
-  if (selectedHat.value !== 0) {
-    // 모자가 선택되면 캐릭터 비활성화
-    selectedCharacter.value = 0
-    store.setCharacter(0)
-  }
 }
 
 const handleCharacterSelect = (id: number) => {
+  if (selectedClothes.value !== 0) {
+    // 옷이 선택된 상태에서는 캐릭터를 선택할 수 없음
+    return
+  }
   selectedCharacter.value = selectedCharacter.value === id ? 0 : id
   store.setCharacter(selectedCharacter.value)
-  if (selectedCharacter.value !== 0) {
-    // 캐릭터가 선택되면 한복과 모자 비활성화
-    selectedClothes.value = 0
-    selectedHat.value = 0
-    store.setClothes(0)
-    store.setHat(0)
-  }
 }
 
 onMounted(async () => {
@@ -349,17 +319,9 @@ onUnmounted(() => {
           ref="canvasRef"
         ></canvas>
         
-        <!-- 선택된 테두리 표시 -->
-        <img 
-          v-if="selectedBorder"
-          :src="getBorderImageUrl(selectedBorder)"
-          class="border-overlay"
-          alt="border"
-        />
-        
         <!-- 선택된 캐릭터 표시 -->
         <img
-          v-if="selectedCharacter"
+          v-if="selectedCharacter !== 0"
           :src="getCharacterImageUrl(selectedCharacter)"
           class="character-overlay"
           alt="character"
@@ -367,21 +329,21 @@ onUnmounted(() => {
         
         <!-- 선택된 옷 표시 -->
         <img
-          v-if="selectedClothes > 0 && !selectedCharacter"
+          v-if="selectedClothes !== 0 && !selectedCharacter"
           :src="getClothesImageUrl(selectedClothes)"
           class="clothes-overlay"
           alt="clothes"
         />
         
-        <!-- 선택된 모자 표시 -->
-        <img
-          v-if="selectedHat > 0 && !selectedCharacter"
-          :src="getHatImageUrl(selectedHat)"
-          class="hat-overlay"
-          alt="hat"
+        <!-- 선택된 테두리 표시 -->
+        <img 
+          v-if="selectedBorder !== 0"
+          :src="getBorderImageUrl(selectedBorder)"
+          class="border-overlay"
+          alt="border"
         />
         
-        <!-- 카운트다운 오��레이 -->
+        <!-- 카운트다운 오버레이 -->
         <div 
           v-if="isCountingDown" 
           class="countdown-overlay"
@@ -412,32 +374,29 @@ onUnmounted(() => {
           v-for="character in store.characters" 
           :key="character.id"
           class="item-button"
-          :class="{ 'selected': selectedCharacter === character.id }"
+          :class="{ 
+            'selected': selectedCharacter === character.id,
+            'disabled': selectedClothes !== 0
+          }"
           @click="handleCharacterSelect(character.id)"
         >
           {{ character.name }}
         </button>
       </div>
 
-      <!-- 한복과 모자 선택 (하나의 섹션으로 통합) -->
+      <!-- 옷 선택 -->
       <div class="selector-section">
         <button 
           v-for="cloth in store.clothes" 
-          :key="'cloth_' + cloth.id"
+          :key="cloth.id"
           class="item-button"
-          :class="{ 'selected': selectedClothes === cloth.id }"
+          :class="{ 
+            'selected': selectedClothes === cloth.id,
+            'disabled': selectedCharacter !== 0
+          }"
           @click="handleClothesSelect(cloth.id)"
         >
           {{ cloth.name }}
-        </button>
-        <button 
-          v-for="hat in store.hats" 
-          :key="'hat_' + hat.id"
-          class="item-button"
-          :class="{ 'selected': selectedHat === hat.id }"
-          @click="handleHatSelect(hat.id)"
-        >
-          {{ hat.name }}
         </button>
       </div>
     </div>
@@ -575,7 +534,7 @@ canvas {
   background: rgba(255,255,255,0.2);
 }
 
-/* 가��� 모드 방지 스타일 제거 */
+/* 가로 모드 방지 스타일 제거 */
 @media screen and (orientation: landscape) {
   .camera-app {
     /* 가로 모드 강제 변환 스타일 제거 */
@@ -630,7 +589,7 @@ canvas {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 3;
+  z-index: 2;
 }
 
 .item-selector {
@@ -651,12 +610,6 @@ canvas {
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 5px;
-  flex-wrap: nowrap;  /* 한 줄에 모든 버튼이 표시되도록 */
-  -webkit-overflow-scrolling: touch;  /* iOS에서 부드러운 스크롤 */
-}
-
-.selector-section::-webkit-scrollbar {
-  display: none;  /* 스크롤바 숨기기 */
 }
 
 .item-button {
@@ -679,14 +632,19 @@ canvas {
   background: #6200EE;
 }
 
-.item-button:active {
+.item-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.item-button:active:not(.disabled) {
   transform: scale(0.95);
 }
 
 .character-overlay,
-.clothes-overlay,
-.hat-overlay {
+.clothes-overlay {
   position: absolute;
+  top: 50%;
   width: 100%;
   height: 100%;
   pointer-events: none;
@@ -697,8 +655,8 @@ canvas {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 130%;
-  height: 130%;
+  width: 160%;
+  height: 160%;
   transform: translate(-50%, -50%);
   z-index: 1;
   pointer-events: none;
@@ -707,24 +665,12 @@ canvas {
 
 .clothes-overlay {
   position: absolute;
-  top: 60%;
+  top: 65%;
   left: 50%;
-  width: 80%;
-  height: 80%;
+  width: 120%;
+  height: 120%;
   transform: translate(-50%, -50%);
   z-index: 1;
-  pointer-events: none;
-  object-fit: contain;
-}
-
-.hat-overlay {
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  width: 45%;
-  height: 45%;
-  transform: translate(-50%, -50%);
-  z-index: 2;
   pointer-events: none;
   object-fit: contain;
 }
@@ -736,7 +682,7 @@ canvas {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 3;
+  z-index: 2;
 }
 
 .item-button.disabled {

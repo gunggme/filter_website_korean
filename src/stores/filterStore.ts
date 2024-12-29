@@ -18,7 +18,12 @@ export const useFilterStore = defineStore('filter', () => {
 
   // 옷 정보
   const clothes = ref([
-    { id: 1, name: '한복', type: 'traditional' }
+    { id: 1, name: '한복 1' },
+    { id: 2, name: '한복 2' },
+    { id: 3, name: '한복 3' },
+    { id: 4, name: '한복 4' },
+    { id: 5, name: '한복 5' },
+    { id: 6, name: '한복 6' }
   ])
 
   // 모자 정보
@@ -31,7 +36,9 @@ export const useFilterStore = defineStore('filter', () => {
     { id: 1, name: '테두리 1' },
     { id: 2, name: '테두리 2' },
     { id: 3, name: '테두리 3' },
-    { id: 4, name: '테두리 4' }
+    { id: 4, name: '테두리 4' },
+    { id: 5, name: '테두리 5' },
+    { id: 6, name: '테두리 6' }
   ])
 
   // 캐릭터 정보

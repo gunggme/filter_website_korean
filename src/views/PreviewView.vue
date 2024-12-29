@@ -9,6 +9,17 @@ import sticker3 from '@/assets/stickers/sticker3.png'
 import sticker4 from '@/assets/stickers/sticker4.png'
 import sticker5 from '@/assets/stickers/sticker5.png'
 import sticker6 from '@/assets/stickers/sticker6.png'
+import sticker7 from '@/assets/stickers/sticker7.png'
+import sticker8 from '@/assets/stickers/sticker8.png'
+import sticker9 from '@/assets/stickers/sticker9.png'
+import sticker10 from '@/assets/stickers/sticker10.png'
+import sticker11 from '@/assets/stickers/sticker11.png'
+import sticker12 from '@/assets/stickers/sticker12.png'
+import sticker13 from '@/assets/stickers/sticker13.png'
+import sticker14 from '@/assets/stickers/sticker14.png'
+import sticker15 from '@/assets/stickers/sticker15.png'
+import sticker16 from '@/assets/stickers/sticker16.png'
+import sticker17 from '@/assets/stickers/sticker17.png'
 
 const router = useRouter()
 const capturedImage = ref('')
@@ -23,7 +34,18 @@ const stickers = ref([
   { id: 3, url: sticker3 },
   { id: 4, url: sticker4 },
   { id: 5, url: sticker5 },
-  { id: 6, url: sticker6 }
+  { id: 6, url: sticker6 },
+  { id: 7, url: sticker7 },
+  { id: 8, url: sticker8 },
+  { id: 9, url: sticker9 },
+  { id: 10, url: sticker10 },
+  { id: 11, url: sticker11 },
+  { id: 12, url: sticker12 },
+  { id: 13, url: sticker13 },
+  { id: 14, url: sticker14 },
+  { id: 15, url: sticker15 },
+  { id: 16, url: sticker16 },
+  { id: 17, url: sticker17 }
 ])
 
 interface PlacedSticker {
